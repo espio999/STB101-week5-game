@@ -1,0 +1,267 @@
+---
+title: "Week 5"
+output: html_notebook
+---
+
+```{r setup}
+v1=c()
+for (i in week5data2){
+  v1 = c(v1, mean(i))
+}
+
+v2=c()
+for (i in week5data2){
+  v2 = c(v2, sd(i))
+}
+
+mm=mean(v1)
+msd=sd(v1)
+sig3max=mm+3*msd
+sig3min=mm-3*msd
+
+drowPlot=function(dat, p1, p2){
+  mymin = p1 - 1
+  mymax = p2 + 1
+  
+  plot(dat$process1, type="p", ylim=c(mymin, mymax), axes=F, ylab="", col="2")
+  par(new=T)
+  plot(dat$process2, type="p", ylim=c(mymin, mymax), axes=F, ylab="", col="3")
+  par(new=T)
+  plot(dat$process3, type="p", ylim=c(mymin, mymax), axes=F, ylab="", col="4")
+  par(new=T)
+  plot(dat$process4, type="p", ylim=c(mymin, mymax), axes=F, ylab="", col="5")
+  par(new=T)
+  plot(dat$process5, type="p", ylim=c(mymin, mymax), axes=F, ylab="", col="6")
+  par(new=T)
+}
+
+makeSummary = function(val){
+  mat = matrix(seekInterval(val$process1), ncol=7)
+  mat=rbind(mat, seekInterval(val$process2))
+  mat=rbind(mat, seekInterval(val$process3))
+  mat=rbind(mat, seekInterval(val$process4))
+  mat=rbind(mat, seekInterval(val$process5))
+
+  mat=rbind(mat, seekInterval(
+    c(
+      val$process1,
+      val$process2,
+      val$process3,
+      val$process4,
+      val$process5
+    )
+  ))
+
+  colnames(mat)=c(
+    "variance",
+    "95% conf - bottom",
+    "95% conf - top",
+    "deviation - bottom",
+    "deviation - top",
+    "mean",
+    "stndard deviation"
+  )
+  
+  rownames(mat) = c(
+    "process 1",
+    "process 2",
+    "process 3",
+    "process 4",
+    "process 5",
+    "all process"
+  )
+  
+  return(mat)
+}
+
+seekInterval = function(val){
+  v=var(val)
+  df=length(val)-1
+  b = df*v/qchisq(0.975, df)
+  t = df*v/qchisq(0.025, df)
+  m = mean(val)
+  stdd = sd(val)
+  
+  return(c(v, b, t, sqrt(b), sqrt(t), m, stdd))
+}
+
+drowHist = function(dat, val){
+  myHist=hist(dat, breaks="Sturges", main = val)
+  par(new=T)
+  curve(
+    dnorm(x, mean(dat), sd(dat)),
+    xlim=c(min(myHist$breaks), max(myHist$breaks)),
+    xlab="", ylab="",
+    xaxt="n", yaxt="n",
+    bty="n"
+  )
+}
+
+drawCurve = function(val){
+  nr = nrow(val)
+  
+  for (i in 1:nr){
+    if (i != nr){
+      curve(
+        dnorm(x, val[i,6], val[i,7]),
+        xlim=c(0, 10),
+        col=i + 1,
+        lty="dotted",
+        axes=F,
+        ylab=""
+      )
+      par(new=T)
+    }
+    else{
+      curve(
+        dnorm(x, val[i,6], val[i,7]),
+        xlim=c(0, 10),
+        col="1",
+        ylab=""
+      )
+    }
+  }
+}
+
+makeConclusion=function(val){
+  nr = nrow(val)
+  
+  for (i in 1:nr){
+    m = val[i ,6]
+    b = val[i, 4]
+    t = val[i, 5]
+    s2.b = m - 2 * t
+    s2.t = m + 2 * t
+    
+    if (i == 1){
+      mat = matrix(c(m, b, t, s2.b, s2.t), ncol = 5)
+    }
+    else{
+      mat = rbind(mat, matrix(c(m, b, t, s2.b, s2.t), ncol = 5))
+    }
+  }
+  
+  colnames(mat) = c(
+    "mean",
+    "deviation - bottom",
+    "deviation - top",
+    "2 sigma - bottom",
+    "2 sigma - top"
+  )
+  
+    rownames(mat) = c(
+    "process 1",
+    "process 2",
+    "process 3",
+    "process 4",
+    "process 5",
+    "all process"
+  )
+  
+  return(mat)
+}
+```
+
+## 1. Plot sample means for 40 days (mean chart) and see what is going on
+* mean = `r mm`
++ Although mean of 200 samples are close to 5.0, the ideal value ultimately, 
++ its daily mean is non-constant. --> daily quality is not equal.
++ something (certain process, transmission or both) impacts mean value.
+```{r}
+plot(v1, type="b")
+abline(h=mm)
+```
+
+## 2. Set internal control criteria as plus/minus 3 standard deviation of sample means and check the control status
+* standard deviation = `r msd`
+* 3 sigma (bottom) = `r sig3min`
+* 3 sigma (top) = `r sig3max`
+
+* Assumption 1: daily mean should close to 5.0, the ideal value.
+* Assumption: outside 3 sigmas is defined as a rejected product.    
+
+```{r fig.width=7.5}
+par(mar=c(5,4,4,5))
+plot(v1, type="l", ylim=c(sig3min-1, sig3max+1), ylab="")
+par(new=T)
+drowPlot(week5data1, sig3min, sig3max)
+abline(h=mm)
+abline(h=sig3max)
+abline(h=sig3min)
+par(xpd=T)
+legend(par()$usr[2], par()$usr[4], legend=colnames(week5data1), pch=20, col=2:6)
+```
+
+## 3. Plot Standard Deviation of samples for 40 days (SD chart) and evaluate the process control
+```{r}
+p1=mean(v2)
+p2=sd(v2)
+p3=p1+2*p2
+p4=p1-2*p2
+```
+* sample stnadard devisation -> SAMPLE
+* mean of SAMPLE = `r p1`
+* standard deviation of SAMPLE = `r p2`
+* 2 sigmas of SAMPLE = `r c(p3, p4)`
+
+* sample SD mean of 200 samples indicates ultimate fluctuation of quality.
+* its daily mean is non-constant. --> daily quality among processes is not equal.
+* something (certain process, transmission or both) impacts mean value.
+```{r}
+plot(v2, type="b")
+abline(h=p1)
+abline(h=p3)
+abline(h=p4)
+```
+
+```{r fig.width=7.5}
+par(mar=c(5,4,4,5))
+plot(v2, type="l")
+abline(h=p1)
+abline(h=p3)
+abline(h=p4)
+par(new=T)
+drowPlot(week5data1, sig3min, sig3max)
+par(xpd=T)
+legend(par()$usr[2], par()$usr[4], legend=colnames(week5data1), pch=20, col=2:6)
+```
++ the greater the deviation, quality fluctuation among processes become bigger.
++ fluctuation in last 20days looks bigger than first 20 days.   
+
+## 4. Construct 95% confidence interval for Standard Deviation of process which measures the true variability of internal fluid pressure.
+### 1 direction, 2 scenarios.
+* use Chi square estimation to estimate population from samples.  
+* seek interval from 5 sample groups
+    + find the widest interval from min to max in each process interval
+* seek interval from simgle sample group
+    + find interval from 200 samples.
+```{r}
+mat = makeSummary(week5data1)
+print(data.frame(mat))
+```
+
+```{r}
+drowHist(week5data1$process1, "process 1")
+drowHist(week5data1$process2, "process 2")
+drowHist(week5data1$process3, "process 3")
+drowHist(week5data1$process4, "process 4")
+drowHist(week5data1$process5, "process 5")
+drowHist(c(
+  week5data1$process1,
+  week5data1$process2,
+  week5data1$process3,
+  week5data1$process4,
+  week5data1$process5
+), "all processes")
+```
+```{r fig.width=7.5}
+par(mar=c(5,4,4,5))
+drawCurve(mat)
+par(xpd=T)
+legend(par()$usr[2], par()$usr[4], legend=colnames(week5data1), pch=20, col=2:6)
+```
+```{r}
+print(data.frame(makeConclusion(mat)))
+```
+95% confidence interval based on processes: 31.59 (1.59) - 38.23 (8.23)   
+95% confidence interval based on all processes: 32.25 (2.25) - 37.70 (7.70)
